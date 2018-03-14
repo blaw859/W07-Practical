@@ -28,6 +28,33 @@ public class W07Practical {
             break;
             case "query1": printAllRecords();
             break;
+            case "query2": getNumberOfSurvivors();
+            break;
+            case "query3": getSurvivorCountByClass();
+        }
+    }
+
+    public static void getNumberOfSurvivors() {
+        getDatabaseInformation();
+        try {
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT count(*) FROM '"+tableName+"' WHERE survived = 1");
+            ResultSet survivedCount = preparedStatement.executeQuery();
+            System.out.println("Number of Survivors");
+            System.out.println(survivedCount.getObject(1));
+        } catch (SQLException e) {
+            System.out.println("Unable to get number of survivors");
+        }
+    }
+
+    public static void  getSurvivorCountByClass() {
+        getDatabaseInformation();
+        try {
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT pClass,survived,count(survived) FROM '"+tableName);
+            ResultSet survivedCount = preparedStatement.executeQuery();
+            System.out.println("pClass, ");
+
+        } catch (SQLException e) {
+            System.out.println("Unable to get number of survivors");
         }
     }
 
@@ -45,15 +72,13 @@ public class W07Practical {
     public static void getDatabaseInformation() {
         try {
             database = new File(dbPath);
-            System.out.println(dbURL);
             dbFileName = database.getName();
             dbURL = "jdbc:sqlite:" + dbFileName;
             setDBNameExtension();
             conn = DriverManager.getConnection(dbURL);
-            System.out.println(conn);
 
         } catch (SQLException e) {
-
+            System.out.println("Unable to obtain database information");
         }
     }
 
@@ -77,18 +102,18 @@ public class W07Practical {
             preparedStatement = conn.prepareStatement("SELECT * FROM '"+tableName+"'");
             ResultSet recordsResultSet = preparedStatement.executeQuery();
             /*preparedStatement = conn.prepareStatement("SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME =  N'"+tableName+"'");*/
-            ResultSet columnResultSet = databaseMetaData.getColumns(catalog,schemaPattern,tableNamePattern,columnNamePattern);
+            /*ResultSet columnResultSet = databaseMetaData.getColumns(catalog,schemaPattern,tableNamePattern,columnNamePattern);
             for (int i = 1; i <= 11; i++) {
                 System.out.print(columnResultSet.getString(i)+", ");
-            }
+            }*/
             /*
             System.out.println(headersResultSet.getString(12));*/
-            //System.out.println("passengerId, survived, pClass, name, sex, age, sibSp, parch, ticket, fare, cabin, embarked");
+            System.out.println("passengerId, survived, pClass, name, sex, age, sibSp, parch, ticket, fare, cabin, embarked");
             while (recordsResultSet.next()) {
                 for (int i = 1; i <= 11; i++) {
-                    System.out.print(recordsResultSet.getString(i)+", ");
+                    System.out.print(recordsResultSet.getObject(i)+", ");
                 }
-                System.out.println(recordsResultSet.getString(12));
+                System.out.println(recordsResultSet.getObject(12));
             }
         } catch (java.sql.SQLException e) {
             e.printStackTrace();
