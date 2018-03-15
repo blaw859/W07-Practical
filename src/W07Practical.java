@@ -3,7 +3,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
-import java.util.regex.Pattern;
 
 public class W07Practical {
     static String dbFileName;
@@ -31,37 +30,51 @@ public class W07Practical {
         switch(action) {
             case "create": createAndPopulateDatabase();
             break;
-            case "query1": printAllRecords();
+            case "query1": queryView("all_passengers","passengerId, survived, pClass, name, sex, age, sibSp, parch, ticket, fare, cabin, embarked",12);
             break;
-            case "query2": getNumberOfSurvivors();
+            case "query2": queryView("number_of_survivors","Number of Survivors",1);
             break;
-            case "query3": getSurvivorCountByClass();
+            case "query3": queryView("survivor_count","pClass, survived, count",3);
             break;
-            case "query4": getMinimumSurvivorAge();
+            case "query4": queryView("minimum_survivor_age","sex, survived, minimum age",3);
             break;
         }
     }
+    public static void queryView(String view, String header, int returnedColums) {
+        getDatabaseInformation();
+        try {
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT * FROM " + view);
+            ResultSet viewOutput = preparedStatement.executeQuery();
+            System.out.println(header);
+            while (viewOutput.next()) {
+                if(returnedColums > 1) {
+                    for (int i = 1; i <= returnedColums - 1; i++) {
+                        System.out.print(viewOutput.getObject(i) + ", ");
+                    }
+                }
+                System.out.println(viewOutput.getObject(returnedColums));
+            }
+        } catch (SQLException e) {
+
+        }
+    }
+
     public static void getMinimumSurvivorAge() {
         getDatabaseInformation();
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement("SELECT sex,survived,MIN(age)  FROM "+tableName+" GROUP BY sex,survived");
-            ResultSet survivedCount = preparedStatement.executeQuery();
-            System.out.println("sex, survived, minimum age");
-            while (survivedCount.next()) {
-                System.out.println(survivedCount.getObject(1)+", "+survivedCount.getObject(2)+", "+survivedCount.getObject(3));
-            }
+            PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS minimum_survivor_age AS SELECT sex,survived,MIN(age)  FROM "+tableName+" GROUP BY sex,survived");
+            preparedStatement.execute();
         } catch (SQLException e) {
             System.out.println("Unable to get number of survivors");
+            e.printStackTrace();
         }
     }
 
     public static void getNumberOfSurvivors() {
         getDatabaseInformation();
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement("SELECT count(survived) FROM '"+tableName+"' WHERE survived = 1");
-            ResultSet survivedCount = preparedStatement.executeQuery();
-            System.out.println("Number of Survivors");
-            System.out.println(survivedCount.getObject(1));
+            PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS number_of_survivors AS SELECT count(survived) FROM '"+tableName+"' WHERE survived = 1");
+            preparedStatement.execute();
         } catch (SQLException e) {
             System.out.println("Unable to get number of survivors");
         }
@@ -70,14 +83,11 @@ public class W07Practical {
     public static void  getSurvivorCountByClass() {
         getDatabaseInformation();
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement("SELECT pClass,survived,count(survived) FROM "+tableName+" GROUP BY pClass,survived");
-            ResultSet survivedCount = preparedStatement.executeQuery();
-            System.out.println("pClass, survived, count");
-            while (survivedCount.next()) {
-                System.out.println(survivedCount.getObject(1)+", "+survivedCount.getObject(2)+", "+survivedCount.getObject(3));
-            }
+            PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS survivor_count AS SELECT pClass,survived,count(survived) FROM "+tableName+" GROUP BY pClass,survived");
+            preparedStatement.execute();
+
         } catch (SQLException e) {
-            //System.out.println("Unable to get number of survivors");
+            System.out.println("Unable to get number of survivors");
         }
     }
 
@@ -86,12 +96,20 @@ public class W07Practical {
             createDatabase(dbPath);
             createTable(conn,csvFile);
             populateTable(conn);
+            setViews();
         } catch (SQLException e) {
             System.out.println("Unable to create or populate database");
             e.printStackTrace();
             System.exit(0);
         }
         System.out.println("OK");
+    }
+
+    public static void setViews() {
+        getAllRecords();
+        getMinimumSurvivorAge();
+        getSurvivorCountByClass();
+        getNumberOfSurvivors();
     }
 
     public static void getDatabaseInformation() {
@@ -111,35 +129,14 @@ public class W07Practical {
         if (dbFileName.indexOf(".") > 0) {
             dbName = dbFileName.substring(0,dbFileName.indexOf("."));
         }
-
     }
 
-    public static void printAllRecords() {
-        //Information used by the databaseMetaData.getColumns() method
-        String   catalog           = null;
-        String   schemaPattern     = null;
-        String   tableNamePattern  = tableName;
-        String   columnNamePattern = null;
+    public static void getAllRecords() {
         getDatabaseInformation();
         try {
-            DatabaseMetaData databaseMetaData = conn.getMetaData();
             PreparedStatement preparedStatement = null;
-            preparedStatement = conn.prepareStatement("SELECT * FROM '"+tableName+"'");
-            ResultSet recordsResultSet = preparedStatement.executeQuery();
-            /*preparedStatement = conn.prepareStatement("SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME =  N'"+tableName+"'");*/
-            /*ResultSet columnResultSet = databaseMetaData.getColumns(catalog,schemaPattern,tableNamePattern,columnNamePattern);
-            for (int i = 1; i <= 11; i++) {
-                System.out.print(columnResultSet.getString(i)+", ");
-            }*/
-            /*
-            System.out.println(headersResultSet.getString(12));*/
-            System.out.println("passengerId, survived, pClass, name, sex, age, sibSp, parch, ticket, fare, cabin, embarked");
-            while (recordsResultSet.next()) {
-                for (int i = 1; i <= 11; i++) {
-                    System.out.print(recordsResultSet.getObject(i)+", ");
-                }
-                System.out.println(recordsResultSet.getObject(12));
-            }
+            preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS all_passengers AS SELECT * FROM '"+tableName+"'");
+            preparedStatement.execute();
         } catch (java.sql.SQLException e) {
             e.printStackTrace();
         }
@@ -152,7 +149,6 @@ public class W07Practical {
         dbURL = "jdbc:sqlite:" + dbFileName;
         conn = DriverManager.getConnection(dbURL);
         try {
-            System.out.println(database.getAbsolutePath());
             database.createNewFile();
         } catch (IOException e) {
             e.printStackTrace();
@@ -185,7 +181,6 @@ public class W07Practical {
         for (int i = 0; i < records.size(); i++) {
             String queryString = "INSERT INTO "+tableName+" VALUES ("+records.get(i)[0]+","+records.get(i)[1]+","+records.get(i)[2]+","+records.get(i)[3]+
                     ","+records.get(i)[4]+","+records.get(i)[5]+","+records.get(i)[6]+","+records.get(i)[7]+","+records.get(i)[8]+","+records.get(i)[9]+","+records.get(i)[10]+","+records.get(i)[11]+")";
-            System.out.println(queryString);
             preparedStatement = conn.prepareStatement(queryString);
             preparedStatement.executeUpdate();
         }
@@ -215,7 +210,6 @@ public class W07Practical {
             int i = 0;
             while (inputStream.hasNext()) {
                 String data = inputStream.nextLine();
-                System.out.println(data);
                 if (data.substring(data.length()-1).equals(",")) {
                     data = data + "NULL";
                 }
