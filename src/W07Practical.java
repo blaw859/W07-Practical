@@ -31,6 +31,22 @@ public class W07Practical {
             case "query2": getNumberOfSurvivors();
             break;
             case "query3": getSurvivorCountByClass();
+            break;
+            case "query4": getMinimumSurvivorAge();
+            break;
+        }
+    }
+    public static void getMinimumSurvivorAge() {
+        getDatabaseInformation();
+        try {
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT sex,survived,MIN(age)  FROM "+tableName+" GROUP BY sex,survived");
+            ResultSet survivedCount = preparedStatement.executeQuery();
+            System.out.println("sex, survived, minimum age");
+            while (survivedCount.next()) {
+                System.out.println(survivedCount.getObject(1)+", "+survivedCount.getObject(2)+", "+survivedCount.getObject(3));
+            }
+        } catch (SQLException e) {
+            System.out.println("Unable to get number of survivors");
         }
     }
 
@@ -49,10 +65,12 @@ public class W07Practical {
     public static void  getSurvivorCountByClass() {
         getDatabaseInformation();
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement("SELECT pClass,survived,count(survived) FROM '"+tableName);
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT pClass,survived,count(survived) FROM "+tableName+" GROUP BY pClass,survived");
             ResultSet survivedCount = preparedStatement.executeQuery();
-            System.out.println("pClass, ");
-
+            System.out.println("pClass, survived, count");
+            while (survivedCount.next()) {
+                System.out.println(survivedCount.getObject(1)+", "+survivedCount.getObject(2)+", "+survivedCount.getObject(3));
+            }
         } catch (SQLException e) {
             System.out.println("Unable to get number of survivors");
         }
@@ -174,7 +192,7 @@ public class W07Practical {
         attributeMap.put(attributeArray[2],"INTEGER");
         attributeMap.put(attributeArray[3],"VARCHAR(100)");
         attributeMap.put(attributeArray[4],"VARCHAR(20)");
-        attributeMap.put(attributeArray[5],"DECIMAL(10,1)");
+        attributeMap.put(attributeArray[5],"FLOAT");
         attributeMap.put(attributeArray[6],"INTEGER");
         attributeMap.put(attributeArray[7],"INTEGER");
         attributeMap.put(attributeArray[8],"STRING");
