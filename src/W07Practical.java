@@ -5,29 +5,49 @@ import java.sql.*;
 import java.util.*;
 
 public class W07Practical {
-    static String dbFileName;
-    static String dbName;
-    static String dbURL;
-    static String tableName;
-    public static Connection conn;
-    static File database;
-    static File csvFile;
-    static HashMap<String,String> attributeMap;
-    static String dbPath;
+    private static String dbFileName;
+    private static String dbURL;
+    private static String tableName;
+    private static Connection conn;
+    private static File database;
+    private static File csvFile;
+    private static HashMap<String,String> attributeMap;
+    private static String dbPath;
 
+    /**
+     * Takes command line arguments as input and calls the correct method to either create the database or perform some
+     * query
+     * @param args Should always start with the location of the database and an action and then also the location of the
+     *             .csv file if a database is being created
+     */
     public static void main(String args[]) {
-        tableName = "titanicPeople";
+        tableName = "titanicpeople";
         String action = "";
+
+        //Validation on the first two arguments
         try {
             dbPath = args[0];
             action = args[1];
+            if (!dbPath.substring(dbPath.length()-3,dbPath.length()).equals(".db")) {
+                System.out.println("Usage: java -cp sqlite-jdbc.jar:. W07Practical <db_file> <action> [input_file]");
+                System.exit(0);
+            }
         } catch (ArrayIndexOutOfBoundsException e) {
             System.out.println("Usage: java -cp sqlite-jdbc.jar:. W07Practical <db_file> <action> [input_file]");
+            System.exit(0);
         }
-        if(args.length == 3) {
+
+        //Validation on the third argument
+        if (args.length == 3) {
             csvFile = new File(args[2]);
+            if (!dbPath.substring(dbPath.length()-3,dbPath.length()).equals(".db")) {
+                System.out.println("Usage: java -cp sqlite-jdbc.jar:. W07Practical <db_file> <action> [input_file]");
+                System.exit(0);
+            }
         }
-        switch(action) {
+
+        //Switch statement that will select the right query and execute it based on pre defined views
+        switch (action) {
             case "create": createAndPopulateDatabase();
             break;
             case "query1": queryView("all_passengers","passengerId, survived, pClass, name, sex, age, sibSp, parch, ticket, fare, cabin, embarked",12);
@@ -38,114 +58,132 @@ public class W07Practical {
             break;
             case "query4": queryView("minimum_survivor_age","sex, survived, minimum age",3);
             break;
+            default: System.out.println("Usage: java -cp sqlite-jdbc.jar:. W07Practical <db_file> <action> [input_file]");
+            break;
         }
     }
-    public static void queryView(String view, String header, int returnedColums) {
+
+    /**
+     * Prints out the result set of a query using the view parameter. The header parameter is what is printed first then
+     * all of the returned results are printed out
+     * @param view One of the pre defined views to be used
+     * @param header The line of text to be printed before the results
+     * @param returnedColumns The number of columns returned such that each column can be printed in a loop
+     */
+    private static void queryView(String view, String header, int returnedColumns) {
         getDatabaseInformation();
         try {
             PreparedStatement preparedStatement = conn.prepareStatement("SELECT * FROM " + view);
             ResultSet viewOutput = preparedStatement.executeQuery();
             System.out.println(header);
             while (viewOutput.next()) {
-                if(returnedColums > 1) {
-                    for (int i = 1; i <= returnedColums - 1; i++) {
+                if(returnedColumns > 1) {
+                    for (int i = 1; i <= returnedColumns - 1; i++) {
                         System.out.print(viewOutput.getObject(i) + ", ");
                     }
                 }
-                System.out.println(viewOutput.getObject(returnedColums));
+                System.out.println(viewOutput.getObject(returnedColumns));
             }
         } catch (SQLException e) {
-
+            System.out.println("Unable to perform query with this view");
         }
     }
 
-    public static void getMinimumSurvivorAge() {
-        getDatabaseInformation();
-        try {
+    /**
+     * Creates a view with the minimum age of people from each sex who survived or didn't
+     * @throws SQLException If this view cannot be created an exception will be thrown, this will be to do with an issue
+     *                      with the table name
+     */
+    private static void createViewMinimumSurvivorAge() throws SQLException{
             PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS minimum_survivor_age AS SELECT sex,survived,MIN(age)  FROM "+tableName+" GROUP BY sex,survived");
             preparedStatement.execute();
-        } catch (SQLException e) {
-            System.out.println("Unable to get number of survivors");
-            e.printStackTrace();
-        }
     }
 
-    public static void getNumberOfSurvivors() {
-        getDatabaseInformation();
-        try {
+    /**
+     * Creates a view with the number of survivors from the ship
+     * @throws SQLException If this view cannot be created an exception will be thrown, this will be to do with an issue
+     *                      with the table name
+     */
+    private static void createViewNumberOfSurvivors() throws SQLException{
             PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS number_of_survivors AS SELECT count(survived) FROM '"+tableName+"' WHERE survived = 1");
             preparedStatement.execute();
-        } catch (SQLException e) {
-            System.out.println("Unable to get number of survivors");
-        }
     }
 
-    public static void  getSurvivorCountByClass() {
-        getDatabaseInformation();
-        try {
+    /**
+     * Creates a view with the number of people that survived or didn't from each class
+     * @throws SQLException If this view cannot be created an exception will be thrown, this will be to do with an issue
+     *                      with the table name
+     */
+    private static void createViewSurvivorCountByClass() throws SQLException{
             PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS survivor_count AS SELECT pClass,survived,count(survived) FROM "+tableName+" GROUP BY pClass,survived");
             preparedStatement.execute();
-
-        } catch (SQLException e) {
-            System.out.println("Unable to get number of survivors");
-        }
     }
 
-    public static void createAndPopulateDatabase() {
+    /**
+     * Creates a view with the entire table in it
+     * @throws SQLException If this view cannot be created an exception will be thrown, this will be to do with an issue
+     *                      with the table name
+     */
+    private static void createViewAllRecords() throws SQLException{
+        PreparedStatement preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS all_passengers AS SELECT * FROM '"+tableName+"'");
+        preparedStatement.execute();
+    }
+
+    /**
+     * Calls methods that create the database file and then initialize and populate the table within it. It also sets the
+     * views that can be selected form the command line
+     */
+    private static void createAndPopulateDatabase() {
         try {
             createDatabase(dbPath);
-            createTable(conn,csvFile);
-            populateTable(conn);
+            createTable(csvFile);
+            populateTable();
             setViews();
         } catch (SQLException e) {
             System.out.println("Unable to create or populate database");
-            e.printStackTrace();
             System.exit(0);
         }
         System.out.println("OK");
     }
 
-    public static void setViews() {
-        getAllRecords();
-        getMinimumSurvivorAge();
-        getSurvivorCountByClass();
-        getNumberOfSurvivors();
+    /**
+     * Calls all of the methods to create the views and handles the SQLException that could occur
+     */
+    private static void setViews() {
+        getDatabaseInformation();
+        try {
+            createViewAllRecords();
+            createViewMinimumSurvivorAge();
+            createViewSurvivorCountByClass();
+            createViewNumberOfSurvivors();
+        } catch (SQLException e) {
+            System.out.println("Unable to create views");
+            System.exit(0);
+        }
     }
 
-    public static void getDatabaseInformation() {
+    /**
+     * Sets the variables that define how to access the database
+     */
+    private static void getDatabaseInformation() {
         try {
             database = new File(dbPath);
             dbFileName = database.getName();
             dbURL = "jdbc:sqlite:" + dbFileName;
-            setDBNameExtension();
             conn = DriverManager.getConnection(dbURL);
-
         } catch (SQLException e) {
             System.out.println("Unable to obtain database information");
         }
     }
 
-    public static void setDBNameExtension() {
-        if (dbFileName.indexOf(".") > 0) {
-            dbName = dbFileName.substring(0,dbFileName.indexOf("."));
-        }
-    }
-
-    public static void getAllRecords() {
-        getDatabaseInformation();
-        try {
-            PreparedStatement preparedStatement = null;
-            preparedStatement = conn.prepareStatement("CREATE VIEW IF NOT EXISTS all_passengers AS SELECT * FROM '"+tableName+"'");
-            preparedStatement.execute();
-        } catch (java.sql.SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void createDatabase(String dbPath) throws SQLException {
+    /**
+     * Initially creates the database file and sets the variables that state how to connect to it
+     * @param dbPath The absolute path to the database
+     * @throws SQLException If a connection cannot be made to the database then an exception will be thrown
+     */
+    private static void createDatabase(String dbPath) throws SQLException {
         database = new File(dbPath);
         dbFileName = database.getName();
-        setDBNameExtension();
         dbURL = "jdbc:sqlite:" + dbFileName;
         conn = DriverManager.getConnection(dbURL);
         try {
@@ -155,11 +193,15 @@ public class W07Practical {
         }
     }
 
-    public static void createTable(Connection conn, File inputFile) throws SQLException{
-        PreparedStatement preparedStatement = null;
+    /**
+     * Creates the titanicpeople table which can then be populated
+     * @param inputFile The database file
+     * @throws SQLException SQLException will be thrown if the database cannot be connected to
+     */
+    private static void createTable(File inputFile) throws SQLException{
         String[] columnHeaders = getColumnHeaders();
         HashMap<String,String> attributeMap = setAttributes(columnHeaders);
-        preparedStatement = conn.prepareStatement("DROP TABLE IF EXISTS "+tableName);
+        PreparedStatement preparedStatement = conn.prepareStatement("DROP TABLE IF EXISTS "+tableName);
         preparedStatement.executeUpdate();
         String queryString = "CREATE TABLE '"+tableName+"' (";
         for (int i = 0; i < attributeMap.size(); i++) {
@@ -175,7 +217,11 @@ public class W07Practical {
         preparedStatement.close();
     }
 
-    public static void populateTable(Connection conn) throws java.sql.SQLException{
+    /**
+     * Populates the table with all of the data records from the .csv file
+     * @throws SQLException SQLException will be thrown if a connection cannot be made to the database
+     */
+    private static void populateTable() throws SQLException{
         PreparedStatement preparedStatement = null;
         ArrayList<String[]> records = readFile();
         for (int i = 0; i < records.size(); i++) {
@@ -187,7 +233,14 @@ public class W07Practical {
         preparedStatement.close();
     }
 
-    public static HashMap<String,String> setAttributes(String[] attributeArray) {
+    /**
+     * This method sets the types for the attributes of the database. This is not do much at the moment but in theory
+     * if there was a way of working out what type the inputs were from the .csv file then they can be set here and be
+     * used when creating the table
+     * @param attributeArray The attributes to be put into the database so that types can be assigned to them
+     * @return Attribute map mapping each attribute to its type
+     */
+    private static HashMap<String,String> setAttributes(String[] attributeArray) {
         attributeMap = new HashMap();
         attributeMap.put(attributeArray[0],"INTEGER");
         attributeMap.put(attributeArray[1],"INTEGER");
@@ -198,13 +251,14 @@ public class W07Practical {
         attributeMap.put(attributeArray[6],"INTEGER");
         attributeMap.put(attributeArray[7],"INTEGER");
         attributeMap.put(attributeArray[8],"STRING");
-        attributeMap.put(attributeArray[9],"DECIMAL(10,10)");
+        attributeMap.put(attributeArray[9],"FLOAT");
         attributeMap.put(attributeArray[10],"STRING");
         attributeMap.put(attributeArray[11],"CHAR");
         return attributeMap;
     }
 
-    public static ArrayList<String[]> readFile() {
+
+    private static ArrayList<String[]> readFile() {
         ArrayList<String[]> allRecords = new ArrayList();
         try (Scanner inputStream = new Scanner(csvFile)) {
             int i = 0;
@@ -226,7 +280,7 @@ public class W07Practical {
         return allRecords;
     }
 
-    public static String[] sanitiseRecord(String[] record) {
+    private static String[] sanitiseRecord(String[] record) {
         for (int i = 0; i < record.length; i++) {
             record[i] = record[i].replaceAll("'","''");
         }
@@ -237,13 +291,13 @@ public class W07Practical {
         record[11] = "'"+record[11]+"'";
         for (int i = 0; i < record.length; i++) {
             if (record[i].equals("") || record[i].equals("''") || record[i].equals("'NULL'")) {
-                record[i] = "NULL";
+                record[i] = "NULL"; 
             }
         }
         return record;
     }
 
-    public static String[] getColumnHeaders() {
+    private static String[] getColumnHeaders() {
         String[] columnHeaders;
         try (Scanner inputStream = new Scanner(csvFile)) {
             if(inputStream.hasNext()) {
