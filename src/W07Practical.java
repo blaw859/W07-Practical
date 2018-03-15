@@ -18,8 +18,13 @@ public class W07Practical {
 
     public static void main(String args[]) {
         tableName = "titanicPeople";
-        dbPath = args[0];
-        String action = args[1];
+        String action = "";
+        try {
+            dbPath = args[0];
+            action = args[1];
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("Usage: java -cp sqlite-jdbc.jar:. W07Practical <db_file> <action> [input_file]");
+        }
         if(args.length == 3) {
             csvFile = new File(args[2]);
         }
@@ -53,7 +58,7 @@ public class W07Practical {
     public static void getNumberOfSurvivors() {
         getDatabaseInformation();
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement("SELECT count(*) FROM '"+tableName+"' WHERE survived = 1");
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT count(survived) FROM '"+tableName+"' WHERE survived = 1");
             ResultSet survivedCount = preparedStatement.executeQuery();
             System.out.println("Number of Survivors");
             System.out.println(survivedCount.getObject(1));
@@ -72,7 +77,7 @@ public class W07Practical {
                 System.out.println(survivedCount.getObject(1)+", "+survivedCount.getObject(2)+", "+survivedCount.getObject(3));
             }
         } catch (SQLException e) {
-            System.out.println("Unable to get number of survivors");
+            //System.out.println("Unable to get number of survivors");
         }
     }
 
@@ -83,8 +88,10 @@ public class W07Practical {
             populateTable(conn);
         } catch (SQLException e) {
             System.out.println("Unable to create or populate database");
+            e.printStackTrace();
             System.exit(0);
         }
+        System.out.println("OK");
     }
 
     public static void getDatabaseInformation() {
@@ -208,6 +215,10 @@ public class W07Practical {
             int i = 0;
             while (inputStream.hasNext()) {
                 String data = inputStream.nextLine();
+                System.out.println(data);
+                if (data.substring(data.length()-1).equals(",")) {
+                    data = data + "NULL";
+                }
                 if (i != 0) {
                     String[] record = data.split(",");
                     record = sanitiseRecord(record);
@@ -222,13 +233,16 @@ public class W07Practical {
     }
 
     public static String[] sanitiseRecord(String[] record) {
+        for (int i = 0; i < record.length; i++) {
+            record[i] = record[i].replaceAll("'","''");
+        }
         record[3] = "'"+record[3]+"'";
         record[4] = "'"+record[4]+"'";
         record[8] = "'"+record[8]+"'";
         record[10] = "'"+record[10]+"'";
         record[11] = "'"+record[11]+"'";
         for (int i = 0; i < record.length; i++) {
-            if (record[i].equals("") || record[i].equals("''")) {
+            if (record[i].equals("") || record[i].equals("''") || record[i].equals("'NULL'")) {
                 record[i] = "NULL";
             }
         }
